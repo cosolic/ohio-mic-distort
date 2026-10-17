@@ -1,8 +1,24 @@
+using Microsoft.Win32;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using OhioMicDistort.Models;
 
 namespace OhioMicDistort.Services;
+
+/// <summary>
+/// Result of checking whether Equalizer APO is actually registered on a capture endpoint.
+/// </summary>
+public enum ApoDeviceStatus
+{
+    /// <summary>Equalizer APO's CLSID is present in the device's FxProperties — Windows will run the APO.</summary>
+    Enabled,
+
+    /// <summary>The device exists but Equalizer APO is NOT enabled on it — no rules will ever apply.</summary>
+    NotInstalled,
+
+    /// <summary>Could not be determined (registry key missing, access denied, non-Windows host).</summary>
+    Unknown
+}
 
 /// <summary>
 /// Discovers Windows Capture (Microphone) devices using NAudio CoreAudio API
@@ -91,7 +107,11 @@ public sealed class AudioDeviceService : IDisposable
                 return;
             }
 
-            _activeCapture = new WasapiCapture(device, true, 30);
+            // useEventSync: false — event-synchronous capture is not supported by every endpoint (and is
+            // frequently unavailable once an APO chain such as Equalizer APO is inserted), which leaves the
+            // meter dead. Polling capture works everywhere. 40 ms keeps the meter smooth without adding
+            // noticeable latency or CPU churn.
+            _activeCapture = new WasapiCapture(device, false, 40);
             _activeCapture.DataAvailable += OnCaptureDataAvailable;
             _activeCapture.StartRecording();
         }
@@ -163,7 +183,114 @@ public sealed class AudioDeviceService : IDisposable
     }
 
     /// <summary>
+    /// CLSIDs Equalizer APO registers for its APO chain. Windows lists them in the value names of
+    /// HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Capture\{endpoint guid}\FxProperties
+    /// only when the user has actually ticked that device in Equalizer APO's Configurator.
+    /// </summary>
+    private static readonly string[] EqualizerApoClsids =
+    {
+        "{EACD2258-FCAC-4FF4-B36D-419E924A6D79}",
+        "{EC1CC9CE-FAED-4822-828A-82A81A6F018F}"
+    };
+
+    /// <summary>Registry path (relative to HKLM) Windows stores per-device audio FX/APO registrations under.</summary>
+    public const string CaptureDevicesRegistryPath =
+        @"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Capture";
+
+    /// <summary>
+    /// Checks the Windows registry to see whether Equalizer APO is enabled on the given capture endpoint.
+    /// Without this, rules are written happily to ohio-mic-distort.txt while the APO never loads, and the
+    /// user has no idea why nothing sounds distorted.
+    /// </summary>
+    /// <param name="endpointGuid">
+    /// Capture endpoint GUID, with or without braces, e.g. "{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}".
+    /// </param>
+    public static ApoDeviceStatus GetEqualizerApoDeviceStatus(string? endpointGuid)
+    {
+        if (string.IsNullOrWhiteSpace(endpointGuid))
+        {
+            return ApoDeviceStatus.Unknown;
+        }
+
+        string guid = endpointGuid.Trim();
+        if (!guid.StartsWith('{'))
+        {
+            guid = $"{{{guid}}}";
+        }
+
+        try
+        {
+            RegistryKey? captureKey = OpenCaptureDevicesKey();
+            if (captureKey is null)
+            {
+                return ApoDeviceStatus.Unknown;
+            }
+
+            using (captureKey)
+            {
+                using RegistryKey? deviceKey = captureKey.OpenSubKey(guid);
+                if (deviceKey is null)
+                {
+                    // Endpoint not present under Capture at all (hot-plugged / renamed) — can't tell.
+                    return ApoDeviceStatus.Unknown;
+                }
+
+                using RegistryKey? fxKey = deviceKey.OpenSubKey("FxProperties");
+                if (fxKey is null)
+                {
+                    // No FX registered on this endpoint whatsoever, so Equalizer APO is definitely not enabled.
+                    return ApoDeviceStatus.NotInstalled;
+                }
+
+                // FxProperties value names look like "{clsid-upstream},{clsid-downstream}".
+                foreach (string valueName in fxKey.GetValueNames())
+                {
+                    foreach (string clsid in EqualizerApoClsids)
+                    {
+                        if (valueName.Contains(clsid, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return ApoDeviceStatus.Enabled;
+                        }
+                    }
+                }
+
+                return ApoDeviceStatus.NotInstalled;
+            }
+        }
+        catch
+        {
+            // Registry access can be blocked by policy on locked-down machines — never crash over it.
+            return ApoDeviceStatus.Unknown;
+        }
+    }
+
+    /// <summary>
+    /// Opens HKLM\...\MMDevices\Audio\Capture, preferring the 64-bit registry view where Windows
+    /// stores audio endpoint FX registrations.
+    /// </summary>
+    private static RegistryKey? OpenCaptureDevicesKey()
+    {
+        try
+        {
+            using RegistryKey baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+            RegistryKey? key = baseKey.OpenSubKey(CaptureDevicesRegistryPath);
+            if (key is not null)
+            {
+                return key;
+            }
+        }
+        catch
+        {
+            // Fall back to the default view below.
+        }
+
+        using RegistryKey defaultBaseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Default);
+        return defaultBaseKey.OpenSubKey(CaptureDevicesRegistryPath);
+    }
+
+    /// <summary>
     /// Extracts "{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}" from a Windows MMDevice ID
+
     /// like "{0.0.1.00000000}.{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}".
     /// Equalizer APO matches this GUID in its "Device:" selector.
     /// </summary>

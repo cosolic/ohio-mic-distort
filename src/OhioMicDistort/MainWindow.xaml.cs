@@ -78,6 +78,7 @@ public partial class MainWindow : Window
         if (devices.Count == 0)
         {
             EndpointGuidText.Text = "No active Microphone Capture devices found.";
+            UpdateApoInstallWarning(null);
             return;
         }
 
@@ -194,10 +195,36 @@ public partial class MainWindow : Window
     private void UpdateIntensityLabel()
     {
         double intensity = _settings.IntensityPercent;
-        double preampDb = Math.Round((intensity / 100.0) * 60.0, 1);
+        double preampDb = EqualizerApoService.GetPreampDb(intensity);
         IntensityValueText.Text = string.Create(
             CultureInfo.InvariantCulture,
-            $"{intensity:F0}%  (+{preampDb:F1} dB Preamp)");
+            $"{intensity:F0}%  (+{preampDb:F1} dB Preamp → hard clip)");
+    }
+
+    /// <summary>
+    /// Warns the user when Equalizer APO is not registered on the selected capture endpoint
+    /// (checked via HKLM\...\MMDevices\Audio\Capture\{guid}\FxProperties), because in that state
+    /// the generated rules are written correctly but never actually loaded by Windows.
+    /// </summary>
+    private void UpdateApoInstallWarning(MicDeviceInfo? mic)
+    {
+        if (mic is null)
+        {
+            ApoNotEnabledBanner.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        ApoDeviceStatus status = AudioDeviceService.GetEqualizerApoDeviceStatus(mic.EndpointGuid);
+        if (status == ApoDeviceStatus.NotInstalled)
+        {
+            ApoNotEnabledText.Text = $"⚠ Equalizer APO is NOT enabled on \"{mic.FriendlyName}\".";
+            ApoNotEnabledBanner.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            // Enabled → nothing to fix. Unknown (no registry access / device gone) → don't cry wolf.
+            ApoNotEnabledBanner.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void RegisterCurrentHotkey()
@@ -237,6 +264,7 @@ public partial class MainWindow : Window
             EndpointGuidText.Text = $"Device: {mic.EndpointGuid}";
             _audioDeviceService.StartInputLevelMonitor(mic.FullId);
             _settingsService.Save(_settings);
+            UpdateApoInstallWarning(mic);
             SyncEqualizerApoState();
         }
     }
@@ -245,6 +273,7 @@ public partial class MainWindow : Window
     {
         LoadCaptureDevices();
         CheckEqualizerApoStatus();
+        UpdateApoInstallWarning(MicComboBox.SelectedItem as MicDeviceInfo);
         SyncEqualizerApoState();
     }
 
