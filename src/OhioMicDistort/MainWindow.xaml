@@ -140,6 +140,49 @@
                               VerticalContentAlignment="Center"
                               Margin="0,0,0,10" />
 
+                    <!-- APO NOT ENABLED WARNING (HKLM ...MMDevices\Audio\Capture\{guid}\FxProperties) -->
+                    <Border x:Name="ApoNotEnabledBanner"
+                            Visibility="Collapsed"
+                            Background="#3A2A0B"
+                            BorderBrush="#F59E0B"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12"
+                            Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock x:Name="ApoNotEnabledText"
+                                           Text="⚠ Equalizer APO is NOT enabled on this microphone."
+                                           FontSize="12"
+                                           FontWeight="Bold"
+                                           Foreground="#FCD34D"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="Rules are written to ohio-mic-distort.txt, but Windows never loads the APO on this device, so nothing sounds distorted. Open the Equalizer APO Configurator, tick this mic under 'Capture devices (Microphones)', reboot if prompted, then press 'Refresh Mics'."
+                                           FontSize="11"
+                                           Foreground="#FDE68A"
+                                           Opacity="0.9"
+                                           TextWrapping="Wrap"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+                            <Button x:Name="EnableApoForMicButton"
+                                    Grid.Column="1"
+                                    Content="Open APO Configurator"
+                                    Click="OpenApoConfiguratorButton_Click"
+                                    Background="#F59E0B"
+                                    Foreground="#1F2937"
+                                    FontWeight="SemiBold"
+                                    BorderThickness="0"
+                                    Padding="12,6"
+                                    Margin="10,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Cursor="Hand" />
+                        </Grid>
+                    </Border>
+
                     <Grid Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -259,7 +302,7 @@
                                    Foreground="{StaticResource TextSecondaryBrush}" />
                         <TextBlock x:Name="IntensityValueText"
                                    Grid.Column="1"
-                                   Text="65%  (+39.0 dB Preamp)"
+                                   Text="65%  (+63.8 dB Preamp)"
                                    FontSize="14"
                                    FontWeight="Bold"
                                    Foreground="#F87171" />
@@ -280,9 +323,9 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="0% (Clean)" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                        <TextBlock Grid.Column="0" Text="0% (+15 dB floor)" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
                         <TextBlock Grid.Column="1" Text="50% (Loud / Crunchy)" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" />
-                        <TextBlock Grid.Column="2" Text="100% (+60 dB Nuclear)" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="2" Text="100% (+90 dB Nuclear)" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Right" />
                     </Grid>
 
                     <CheckBox x:Name="ToasterClipCheckBox"
@@ -291,7 +334,7 @@
                               Unchecked="ToasterClipCheckBox_Changed"
                               Foreground="{StaticResource TextPrimaryBrush}"
                               FontSize="12"
-                              Content="Enable 'Toaster / Xbox 360 Mic' Hard-Clip EQ Shaping (Bass Overdrive + Harsh Vocal Crunch)" />
+                              Content="Enable 'Toaster / Xbox 360 Mic' 4-Stage Hard-Clip Overdrive EQ (160 Hz / 650 Hz / 1750 Hz boosts + 4.2 kHz cut)" />
                 </StackPanel>
             </Border>
 

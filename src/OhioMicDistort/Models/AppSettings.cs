@@ -9,7 +9,7 @@ public sealed class AppSettings
 
     /// <summary>
     /// Distortion intensity from 0% to 100%.
-    /// Maps to Preamp gain (+0 dB to +60 dB) plus hard-clip EQ shaping.
+    /// Maps to overdrive Preamp gain (+15 dB to +90 dB) plus the 4-stage hard-clip EQ shaping.
     /// </summary>
     public double IntensityPercent { get; set; } = 65.0;
 
