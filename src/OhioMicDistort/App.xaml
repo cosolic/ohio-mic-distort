@@ -1,0 +1,14 @@
+<Application x:Class="OhioMicDistort.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <SolidColorBrush x:Key="BgPrimaryBrush" Color="#0F1117" />
+        <SolidColorBrush x:Key="BgCardBrush" Color="#181B24" />
+        <SolidColorBrush x:Key="BorderSubtleBrush" Color="#282D3C" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F3F4F6" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#9CA3AF" />
+        <SolidColorBrush x:Key="AccentRedBrush" Color="#EF4444" />
+        <SolidColorBrush x:Key="AccentGreenBrush" Color="#10B981" />
+    </Application.Resources>
+</Application>
